@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Disposable;
+import lando.systems.prototype.Block.State;
 
 import java.util.List;
 
@@ -97,8 +98,8 @@ public class View implements Disposable {
         for (Block block : blocksInPlay) {
             // Ignore blocks in a state that doesn't make sense
             // NOTE: this shouldn't ever happen
-            if (!Block.State.DROPPING.equals(block.state)
-             && !Block.State.FLINGING.equals(block.state)) {
+            if (!State.DROPPING.equals(block.state)
+             && !State.FLINGING.equals(block.state)) {
                 Gdx.app.error("WARN",
                               "Block in in-play list with state: " +
                               block.state.name());
@@ -116,7 +117,7 @@ public class View implements Disposable {
     }
 
     private void drawBlock(SpriteBatch batch, Block block) {
-        drawBlock(batch, block.getType(), block.position.x, block.position.y);
+        drawBlock(batch, block.type, block.position.x, block.position.y);
     }
 
     private void drawDropRegion() {

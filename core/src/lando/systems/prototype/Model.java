@@ -7,6 +7,7 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
+import lando.systems.prototype.Block.State;
 import lando.systems.prototype.accessors.ColorAccessor;
 import lando.systems.prototype.accessors.Vector2Accessor;
 
@@ -113,10 +114,10 @@ public class Model implements Disposable {
             block = blocksInPlay.get(i);
 
             // Handle dropping blocks
-            if (Block.State.DROPPING.equals(block.state)) {
+            if (State.DROPPING.equals(block.state)) {
                 // If the block goes off screen, remove it
                 if (block.position.y < -Block.SIZE) {
-                    block.state = Block.State.UNKNOWN;
+                    block.state = State.UNKNOWN;
                     block.velocity.set(0, 0);
                     blocksInPlay.remove(i);
                 } else {
@@ -128,7 +129,7 @@ public class Model implements Disposable {
             }
 
             // Handle flinging blocks
-            else if (Block.State.FLINGING.equals(block.state)) {
+            else if (State.FLINGING.equals(block.state)) {
                 // Move the block
                 if (block.velocity.x != 0) {
                     block.position.x += block.velocity.x * deltaTime;
@@ -152,14 +153,14 @@ public class Model implements Disposable {
     private void dropBlock() {
         // Remove first block from queue and put it in play
         Block dropBlock = blockQueue.removeFirst();
-        dropBlock.state = Block.State.DROPPING;
+        dropBlock.state = State.DROPPING;
         dropBlock.position.y -= Block.SIZE;
         blocksInPlay.add(dropBlock);
 
         // Add new block to the end of the queue
         Block newBlock = new Block(BlockType.getRandom(),
                                    blockQueue.getLast().position.cpy(),
-                                   Block.State.QUEUED);
+                                   State.QUEUED);
         newBlock.position.x += Block.SIZE + View.BLOCK_PADDING;
         blockQueue.add(newBlock);
 
@@ -176,7 +177,7 @@ public class Model implements Disposable {
 
         Block flung = null;
         for (Block block : blocksInPlay) {
-            if (Block.State.DROPPING.equals(block.state)) {
+            if (State.DROPPING.equals(block.state)) {
                 bounds.setPosition(block.position);
                 if (bounds.contains(touch)) {
                     flung = block;
@@ -186,7 +187,7 @@ public class Model implements Disposable {
         }
 
         if (flung != null) {
-            flung.state = Block.State.FLINGING;
+            flung.state = State.FLINGING;
             flung.velocity.x = FLING_SPEED;
             blockField.clampToRow(flung, touch);
         }

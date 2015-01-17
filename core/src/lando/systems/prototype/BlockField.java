@@ -1,6 +1,7 @@
 package lando.systems.prototype;
 
 import com.badlogic.gdx.math.Vector2;
+import lando.systems.prototype.Block.State;
 
 /**
  * Brian Ploeckelman created on 1/17/2015.
@@ -60,8 +61,8 @@ public class BlockField {
         }
 
         if (block.position.x >= lastEmptyBlock.position.x) {
-            lastEmptyBlock.setType(block.getType());
-            lastEmptyBlock.state = Block.State.LANDED;
+            lastEmptyBlock.type  = block.type;
+            lastEmptyBlock.state = State.LANDED;
             return true;
         }
         return false;
