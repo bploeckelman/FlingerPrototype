@@ -3,6 +3,7 @@ package lando.systems.prototype;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Disposable;
 
 /**
@@ -40,14 +41,20 @@ public class Controller extends InputAdapter implements Disposable {
     // Private implementation
     // -------------------------------------------------------------------------
 
+    private Vector3 screenTouch = new Vector3();
+    private Vector3 worldTouch  = new Vector3();
+
     private void processInput() {
         if (Gdx.input.isKeyJustPressed(Keys.ESCAPE)) {
             Gdx.app.exit();
         }
 
         if (Gdx.input.justTouched()) {
-            if (Gdx.input.getX() < View.DROP_REGION_WIDTH) {
-                model.flingBlock();
+            screenTouch.set(Gdx.input.getX(), Gdx.input.getY(), 0);
+            worldTouch = view.camera.unproject(screenTouch);
+
+            if (screenTouch.x < View.DROP_REGION_WIDTH) {
+                model.handleFling(worldTouch.x, worldTouch.y);
             }
         }
 

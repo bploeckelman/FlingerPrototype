@@ -4,6 +4,7 @@ import aurelienribon.tweenengine.Tween;
 import aurelienribon.tweenengine.TweenManager;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
 import lando.systems.prototype.accessors.ColorAccessor;
@@ -16,24 +17,27 @@ import java.util.LinkedList;
  */
 public class Model implements Disposable {
 
-    private static final int   BLOCK_QUEUE_SIZE   = 6;
-    private static final int   BLOCK_FIELD_WIDTH  = 6;
-    private static final int   BLOCK_FIELD_HEIGHT = 12;
-    private static final float DROP_GRAVITY       = 128;
-    private static final float DROP_DELAY         = 1;
-    private static final float SWING_FREQUENCY    = 4;
-    private static final float SWING_AMPLITUDE    = View.DROP_REGION_WIDTH / 2 -
-                                                    Block.SIZE * 2;
-    private static final float SWING_CENTER_X     = View.BLOCK_QUEUE_POSITION_X;
-    private static final float FLING_SPEED        = 512;
+    private static final int   QUEUE_SIZE      = 6;
+    private static final int   FIELD_WIDTH     = 6;
+    private static final int   FIELD_HEIGHT    = 12;
+    private static final float DROP_GRAVITY    = 64;
+    private static final float DROP_DELAY      = 1.25f;
+    private static final float FLING_SPEED     = 512;
+    private static final float SWING_FREQUENCY = 3;
+    private static final float SWING_AMPLITUDE = View.DROP_REGION_WIDTH / 2 -
+                                                 Block.SIZE * 2;
+    private static final float SWING_CENTER_X  = View.BLOCK_QUEUE_POSITION_X;
+    private static final float FIELD_START_X   = View.VIEW_WIDTH -
+                                                 FIELD_WIDTH * Block.SIZE;
+    private static final float FIELD_START_Y   = View.BLOCK_QUEUE_MARGIN_TOP;
 
     TweenManager      tweens;
     LinkedList<Block> blockQueue;
     LinkedList<Block> blocksInPlay;
     Block[][]         blockField;
 
-    float     dropAccum;
-    float     swingAccum;
+    float dropAccum;
+    float swingAccum;
 
     public Model() {
         tweens = new TweenManager();
@@ -45,7 +49,7 @@ public class Model implements Disposable {
         blockQueue = new LinkedList<Block>();
         float bx = View.BLOCK_QUEUE_POSITION_X;
         float by = View.BLOCK_QUEUE_POSITION_Y;
-        for (int i = 0; i < BLOCK_QUEUE_SIZE; ++i) {
+        for (int i = 0; i < QUEUE_SIZE; ++i) {
             position.set(bx, by);
             blockQueue.add(new Block(BlockType.getRandom(), position.cpy()));
             bx += Block.SIZE + View.BLOCK_PADDING;
@@ -53,9 +57,7 @@ public class Model implements Disposable {
 
         blocksInPlay = new LinkedList<Block>();
 
-        final float FIELD_START_X = View.VIEW_WIDTH - BLOCK_FIELD_WIDTH * Block.SIZE;
-        final float FIELD_START_Y = View.BLOCK_QUEUE_MARGIN_TOP;
-        blockField = new Block[BLOCK_FIELD_HEIGHT][BLOCK_FIELD_WIDTH];
+        blockField = new Block[FIELD_HEIGHT][FIELD_WIDTH];
         for (int y = 0; y < blockField.length; ++y) {
             for (int x = 0; x < blockField[0].length; ++x) {
                 position.set(FIELD_START_X + x * Block.SIZE,
@@ -64,8 +66,8 @@ public class Model implements Disposable {
             }
         }
 
-        dropAccum     = DROP_DELAY;
-        swingAccum    = 0;
+        dropAccum  = DROP_DELAY;
+        swingAccum = 0;
     }
 
     public final TweenManager tween() {
@@ -93,20 +95,9 @@ public class Model implements Disposable {
         updateBlocks(deltaTime);
     }
 
-    // TODO(brian): add pointer x,y and fling the touched block, if such a block exists and is DROPPING;
-    public void flingBlock() {
-        Block flingBlock = null;
-        for (Block block : blocksInPlay) {
-            if (Block.State.DROPPING.equals(block.state)) {
-                flingBlock = block;
-                break;
-            }
-        }
-
-        if (flingBlock != null) {
-            flingBlock.state = Block.State.FLINGING;
-            flingBlock.velocity.x = FLING_SPEED;
-        }
+    // TODO(brian): add fling handling with a GestureDetector implementation in Controller
+    public void handleFling(float worldTouchX, float worldTouchY) {
+        flingBlock(worldTouchX, worldTouchY);
     }
 
     @Override
@@ -123,6 +114,7 @@ public class Model implements Disposable {
             dropBlock();
         }
 
+        // TODO(brian): each block should handle its own swing
         swingAccum += SWING_FREQUENCY * deltaTime;
         if (swingAccum >= MathUtils.PI2) {
             swingAccum = 0;
@@ -158,8 +150,6 @@ public class Model implements Disposable {
                 } else {
                     if (block.velocity.x != 0) {
                         block.position.x += block.velocity.x * deltaTime;
-                        // TODO(brian): clamp to closest field row y pos
-//                        block.position.y  = block.position.y;
                     }
                 }
             }
@@ -183,6 +173,38 @@ public class Model implements Disposable {
         // Update queued block positions
         for (Block block : blockQueue) {
             block.position.x -= Block.SIZE + View.BLOCK_PADDING;
+        }
+    }
+
+    private Vector2   touch  = new Vector2();
+    private Rectangle bounds = new Rectangle(0, 0, Block.SIZE, Block.SIZE);
+    private void flingBlock(float worldTouchX, float worldTouchY) {
+        touch.set(worldTouchX, worldTouchY);
+
+        Block fling = null;
+        for (Block block : blocksInPlay) {
+            if (Block.State.DROPPING.equals(block.state)) {
+                bounds.setPosition(block.position);
+                if (bounds.contains(touch)) {
+                    fling = block;
+                    break;
+                }
+            }
+        }
+
+        if (fling != null) {
+            fling.state = Block.State.FLINGING;
+            fling.velocity.x = FLING_SPEED;
+
+            // Clamp to closest field row y pos
+            // TODO(brian): there should be a more elegant way to accomplish this
+            final float FIELD_END_Y = FIELD_START_Y + FIELD_HEIGHT * Block.SIZE;
+            for (float y = FIELD_START_Y; y < FIELD_END_Y; y += Block.SIZE) {
+                if (touch.y >= y && touch.y <= y + Block.SIZE) {
+                    fling.position.y = y;
+                    break;
+                }
+            }
         }
     }
 
