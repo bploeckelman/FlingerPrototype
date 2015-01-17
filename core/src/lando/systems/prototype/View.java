@@ -1,10 +1,12 @@
 package lando.systems.prototype;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
 
 import java.util.List;
@@ -14,17 +16,16 @@ import java.util.List;
  */
 public class View implements Disposable {
 
-    public static final int   VIEW_WIDTH              = 800;
-    public static final int   VIEW_HEIGHT             = 480;
-    public static final int   BLOCK_SIZE              = 32;
-    public static final float DROP_REGION_WIDTH       = VIEW_WIDTH / 3;
-    public static final float BLOCK_PADDING           = 8f;
-    public static final float BLOCK_QUEUE_MARGIN_TOP  = 16;
-    public static final float BLOCK_QUEUE_POSITION_X  = DROP_REGION_WIDTH / 2 -
-                                                        BLOCK_SIZE / 2;
-    public static final float BLOCK_QUEUE_POSITION_Y  = VIEW_HEIGHT -
-                                                        BLOCK_QUEUE_MARGIN_TOP -
-                                                        BLOCK_SIZE;
+    public static final int   VIEW_WIDTH             = 800;
+    public static final int   VIEW_HEIGHT            = 480;
+    public static final float DROP_REGION_WIDTH      = VIEW_WIDTH / 3;
+    public static final float BLOCK_PADDING          = 8f;
+    public static final float BLOCK_QUEUE_MARGIN_TOP = 16;
+    public static final float BLOCK_QUEUE_POSITION_X = DROP_REGION_WIDTH / 2 -
+                                                       Block.SIZE / 2;
+    public static final float BLOCK_QUEUE_POSITION_Y = VIEW_HEIGHT -
+                                                       BLOCK_QUEUE_MARGIN_TOP -
+                                                       Block.SIZE;
 
     Model              model;
     SpriteBatch        batch;
@@ -41,8 +42,8 @@ public class View implements Disposable {
         camera.setToOrtho(false, VIEW_WIDTH, VIEW_HEIGHT);
         spritesheet = new Texture("spritesheet.png");
         TextureRegion[][] regions = TextureRegion.split(spritesheet,
-                                                        BLOCK_SIZE,
-                                                        BLOCK_SIZE);
+                                                        Block.SIZE,
+                                                        Block.SIZE);
         blockTexture      = regions[0][0];
         emptyTexture      = regions[0][1];
         dropRegionTexture = regions[0][2];
@@ -62,7 +63,7 @@ public class View implements Disposable {
         drawDropRegion();
         drawBlockQueue(model.getBlockQueue());
         drawBlockField(model.getBlockField());
-        drawBlockDrop(model.isDropping());
+        drawBlocksInPlay(model.getBlocksInPlay());
         batch.end();
     }
 
@@ -76,43 +77,46 @@ public class View implements Disposable {
     // Private implementation
     // -------------------------------------------------------------------------
 
-    private void drawBlockQueue(List<BlockType> blockQueue) {
-        float x = BLOCK_QUEUE_POSITION_X;
-        float y = BLOCK_QUEUE_POSITION_Y;
-
-        for (BlockType blockType : blockQueue) {
-            drawBlock(batch, blockType, x, y);
-            x += BLOCK_SIZE + BLOCK_PADDING;
+    private void drawBlockQueue(List<Block> blockQueue) {
+        for (Block block : blockQueue) {
+            drawBlock(batch, block);
         }
         batch.setColor(Color.WHITE);
     }
 
-    private void drawBlockField(BlockType[][] blockField) {
-        final float FIELD_START_X = VIEW_WIDTH - blockField[0].length * BLOCK_SIZE;
-        final float FIELD_START_Y = BLOCK_QUEUE_MARGIN_TOP;
-
-        for (int y = 0; y < blockField.length; ++y) {
-            for (int x = 0; x < blockField[0].length; ++x) {
-                drawBlock(batch,
-                          blockField[y][x],
-                          FIELD_START_X + x * BLOCK_SIZE,
-                          FIELD_START_Y + y * BLOCK_SIZE);
+    private void drawBlockField(Block[][] blockField) {
+        for (Block[] blockRow : blockField) {
+            for (Block block : blockRow) {
+                drawBlock(batch, block);
             }
         }
         batch.setColor(Color.WHITE);
     }
 
-    private void drawBlockDrop(boolean dropping) {
-        if (!dropping) return;
+    private void drawBlocksInPlay(List<Block> blocksInPlay) {
+        for (Block block : blocksInPlay) {
+            // Ignore blocks in a state that doesn't make sense
+            // NOTE: this shouldn't ever happen
+            if (!Block.State.DROPPING.equals(block.state)
+             && !Block.State.FLINGING.equals(block.state)) {
+                Gdx.app.error("WARN",
+                              "Block in in-play list with state: " +
+                              block.state.name());
+                continue;
+            }
 
-        final Vector2 position = model.getDropPosition();
-        drawBlock(batch, model.getDropBlock(), position.x, position.y);
+            drawBlock(batch, block);
+        }
         batch.setColor(Color.WHITE);
     }
 
     private void drawBlock(SpriteBatch batch, BlockType blockType, float x, float y) {
         batch.setColor(blockType.getColor());
-        batch.draw(blockTexture, x, y, BLOCK_SIZE, BLOCK_SIZE);
+        batch.draw(blockTexture, x, y, Block.SIZE, Block.SIZE);
+    }
+
+    private void drawBlock(SpriteBatch batch, Block block) {
+        drawBlock(batch, block.getType(), block.position.x, block.position.y);
     }
 
     private void drawDropRegion() {

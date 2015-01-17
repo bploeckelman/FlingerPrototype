@@ -9,8 +9,7 @@ import com.badlogic.gdx.utils.Disposable;
 import lando.systems.prototype.accessors.ColorAccessor;
 import lando.systems.prototype.accessors.Vector2Accessor;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 
 /**
  * Brian Ploeckelman created on 1/16/2015.
@@ -21,22 +20,18 @@ public class Model implements Disposable {
     private static final int   BLOCK_FIELD_WIDTH  = 6;
     private static final int   BLOCK_FIELD_HEIGHT = 12;
     private static final float DROP_GRAVITY       = 128;
-    private static final float DROP_DELAY         = 3;
+    private static final float DROP_DELAY         = 1;
     private static final float SWING_FREQUENCY    = 4;
     private static final float SWING_AMPLITUDE    = View.DROP_REGION_WIDTH / 2 -
-                                                    View.BLOCK_SIZE * 2;
+                                                    Block.SIZE * 2;
     private static final float SWING_CENTER_X     = View.BLOCK_QUEUE_POSITION_X;
     private static final float FLING_SPEED        = 512;
 
-    TweenManager    tweens;
-    List<BlockType> blockQueue;
-    BlockType[][]   blockField;
+    TweenManager      tweens;
+    LinkedList<Block> blockQueue;
+    LinkedList<Block> blocksInPlay;
+    Block[][]         blockField;
 
-    // TODO(brian): create block class with position info built in
-    Vector2   flingVelocity;
-    Vector2   dropPosition;
-    BlockType dropBlock;
-    boolean   dropping;
     float     dropAccum;
     float     swingAccum;
 
@@ -45,22 +40,30 @@ public class Model implements Disposable {
         Tween.registerAccessor(Color.class, new ColorAccessor());
         Tween.registerAccessor(Vector2.class, new Vector2Accessor());
 
-        blockQueue = new ArrayList<BlockType>(BLOCK_QUEUE_SIZE);
+        Vector2 position = new Vector2();
+
+        blockQueue = new LinkedList<Block>();
+        float bx = View.BLOCK_QUEUE_POSITION_X;
+        float by = View.BLOCK_QUEUE_POSITION_Y;
         for (int i = 0; i < BLOCK_QUEUE_SIZE; ++i) {
-            blockQueue.add(i, BlockType.getRandom());
+            position.set(bx, by);
+            blockQueue.add(new Block(BlockType.getRandom(), position.cpy()));
+            bx += Block.SIZE + View.BLOCK_PADDING;
         }
 
-        blockField = new BlockType[BLOCK_FIELD_HEIGHT][BLOCK_FIELD_WIDTH];
+        blocksInPlay = new LinkedList<Block>();
+
+        final float FIELD_START_X = View.VIEW_WIDTH - BLOCK_FIELD_WIDTH * Block.SIZE;
+        final float FIELD_START_Y = View.BLOCK_QUEUE_MARGIN_TOP;
+        blockField = new Block[BLOCK_FIELD_HEIGHT][BLOCK_FIELD_WIDTH];
         for (int y = 0; y < blockField.length; ++y) {
             for (int x = 0; x < blockField[0].length; ++x) {
-                blockField[y][x] = BlockType.EMPTY;
+                position.set(FIELD_START_X + x * Block.SIZE,
+                             FIELD_START_Y + y * Block.SIZE);
+                blockField[y][x] = new Block(BlockType.EMPTY, position.cpy());
             }
         }
 
-        flingVelocity = new Vector2();
-        dropPosition  = new Vector2();
-        dropBlock     = null;
-        dropping      = false;
         dropAccum     = DROP_DELAY;
         swingAccum    = 0;
     }
@@ -69,24 +72,16 @@ public class Model implements Disposable {
         return tweens;
     }
 
-    public final List<BlockType> getBlockQueue() {
+    public final LinkedList<Block> getBlockQueue() {
         return blockQueue;
     }
 
-    public final BlockType[][] getBlockField() {
+    public final LinkedList<Block> getBlocksInPlay() {
+        return blocksInPlay;
+    }
+
+    public final Block[][] getBlockField() {
         return blockField;
-    }
-
-    public final boolean isDropping() {
-        return dropping;
-    }
-
-    public final Vector2 getDropPosition() {
-        return dropPosition;
-    }
-
-    public final BlockType getDropBlock() {
-        return dropBlock;
     }
 
     // -------------------------------------------------------------------------
@@ -95,41 +90,22 @@ public class Model implements Disposable {
 
     public void update(float deltaTime) {
         tweens.update(deltaTime);
-
-        dropAccum += deltaTime;
-        if (dropAccum >= DROP_DELAY && !dropping) {
-            dropAccum -= DROP_DELAY;
-            dropBlock();
-        }
-
-        if (dropping) {
-            if (dropPosition.y < -View.BLOCK_SIZE
-             || dropPosition.x >  View.VIEW_WIDTH) {
-                dropping = false;
-                swingAccum = 0;
-                flingVelocity.set(0, 0);
-            }
-
-            float newX, newY;
-            if (flingVelocity.x != 0) {
-                newX = dropPosition.x + flingVelocity.x * deltaTime;
-                newY = dropPosition.y; // TODO(brian): clamp to closest field row y pos
-            } else {
-                swingAccum += SWING_FREQUENCY * deltaTime;
-                if (swingAccum > MathUtils.PI2) {
-                    swingAccum = 0;
-                }
-                newX = SWING_AMPLITUDE * MathUtils.sin(swingAccum) + SWING_CENTER_X;
-                newY = dropPosition.y - DROP_GRAVITY * deltaTime;
-            }
-            dropPosition.x = newX;
-            dropPosition.y = newY;
-        }
+        updateBlocks(deltaTime);
     }
 
+    // TODO(brian): add pointer x,y and fling the touched block, if such a block exists and is DROPPING;
     public void flingBlock() {
-        if (dropping && flingVelocity.x == 0) {
-            flingVelocity.x = FLING_SPEED;
+        Block flingBlock = null;
+        for (Block block : blocksInPlay) {
+            if (Block.State.DROPPING.equals(block.state)) {
+                flingBlock = block;
+                break;
+            }
+        }
+
+        if (flingBlock != null) {
+            flingBlock.state = Block.State.FLINGING;
+            flingBlock.velocity.x = FLING_SPEED;
         }
     }
 
@@ -140,16 +116,74 @@ public class Model implements Disposable {
     // Private implementation
     // -------------------------------------------------------------------------
 
-    private void dropBlock() {
-        dropBlock = blockQueue.get(0);
-        for (int i = 0; i < blockQueue.size() - 1; ++i) {
-            blockQueue.set(i, blockQueue.get(i + 1));
+    private void updateBlocks(float deltaTime) {
+        dropAccum += deltaTime;
+        if (dropAccum >= DROP_DELAY) {
+            dropAccum -= DROP_DELAY;
+            dropBlock();
         }
-        blockQueue.set(blockQueue.size() - 1, BlockType.getRandom());
 
-        dropPosition.set(View.BLOCK_QUEUE_POSITION_X,
-                         View.BLOCK_QUEUE_POSITION_Y - View.BLOCK_SIZE);
-        dropping = true;
+        swingAccum += SWING_FREQUENCY * deltaTime;
+        if (swingAccum >= MathUtils.PI2) {
+            swingAccum = 0;
+        }
+
+        // TODO(brian): change blocksInPlay to ArrayList since I'm accessing by index here?
+        Block block;
+        for (int i = blocksInPlay.size() - 1; i >= 0; --i) {
+            block = blocksInPlay.get(i);
+
+            // Handle dropping blocks
+            if (Block.State.DROPPING.equals(block.state)) {
+                // If the block goes off screen, remove it
+                if (block.position.y < -Block.SIZE) {
+                    block.state = Block.State.UNKNOWN;
+                    block.velocity.set(0, 0);
+                    blocksInPlay.remove(i);
+                } else {
+                    block.position.x = SWING_AMPLITUDE *
+                                       MathUtils.sin(swingAccum) +
+                                       SWING_CENTER_X;
+                    block.position.y -= DROP_GRAVITY * deltaTime;
+                }
+            }
+
+            // Handle flinging blocks
+            else if (Block.State.FLINGING.equals(block.state)) {
+                // If the block goes off screen, remove it
+                if (block.position.x > View.VIEW_WIDTH) {
+                    block.state = Block.State.UNKNOWN;
+                    block.velocity.set(0, 0);
+                    blocksInPlay.remove(i);
+                } else {
+                    if (block.velocity.x != 0) {
+                        block.position.x += block.velocity.x * deltaTime;
+                        // TODO(brian): clamp to closest field row y pos
+//                        block.position.y  = block.position.y;
+                    }
+                }
+            }
+        }
+    }
+
+    private void dropBlock() {
+        // Remove first block from queue and put it in play
+        Block dropBlock = blockQueue.removeFirst();
+        dropBlock.state = Block.State.DROPPING;
+        dropBlock.position.y -= Block.SIZE;
+        blocksInPlay.add(dropBlock);
+
+        // Add new block to the end of the queue
+        Block newBlock = new Block(BlockType.getRandom(),
+                                   blockQueue.getLast().position.cpy(),
+                                   Block.State.QUEUED);
+        newBlock.position.x += Block.SIZE + View.BLOCK_PADDING;
+        blockQueue.add(newBlock);
+
+        // Update queued block positions
+        for (Block block : blockQueue) {
+            block.position.x -= Block.SIZE + View.BLOCK_PADDING;
+        }
     }
 
 }
