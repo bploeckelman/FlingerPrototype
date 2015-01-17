@@ -1,8 +1,13 @@
 package lando.systems.prototype;
 
+import aurelienribon.tweenengine.Tween;
+import aurelienribon.tweenengine.TweenManager;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Disposable;
+import lando.systems.prototype.accessors.ColorAccessor;
+import lando.systems.prototype.accessors.Vector2Accessor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +28,7 @@ public class Model implements Disposable {
     private static final float SWING_CENTER_X     = View.BLOCK_QUEUE_POSITION_X;
     private static final float FLING_SPEED        = 512;
 
+    TweenManager    tweens;
     List<BlockType> blockQueue;
     BlockType[][]   blockField;
 
@@ -35,6 +41,10 @@ public class Model implements Disposable {
     float     swingAccum;
 
     public Model() {
+        tweens = new TweenManager();
+        Tween.registerAccessor(Color.class, new ColorAccessor());
+        Tween.registerAccessor(Vector2.class, new Vector2Accessor());
+
         blockQueue = new ArrayList<BlockType>(BLOCK_QUEUE_SIZE);
         for (int i = 0; i < BLOCK_QUEUE_SIZE; ++i) {
             blockQueue.add(i, BlockType.getRandom());
@@ -53,6 +63,10 @@ public class Model implements Disposable {
         dropping      = false;
         dropAccum     = DROP_DELAY;
         swingAccum    = 0;
+    }
+
+    public final TweenManager tween() {
+        return tweens;
     }
 
     public final List<BlockType> getBlockQueue() {
@@ -80,6 +94,8 @@ public class Model implements Disposable {
     // -------------------------------------------------------------------------
 
     public void update(float deltaTime) {
+        tweens.update(deltaTime);
+
         dropAccum += deltaTime;
         if (dropAccum >= DROP_DELAY && !dropping) {
             dropAccum -= DROP_DELAY;
