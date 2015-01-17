@@ -129,14 +129,20 @@ public class Model implements Disposable {
 
             // Handle flinging blocks
             else if (Block.State.FLINGING.equals(block.state)) {
-                // If the block goes off screen, remove it
-                if (block.position.x > View.VIEW_WIDTH) {
-                    block.state = Block.State.UNKNOWN;
-                    block.velocity.set(0, 0);
-                    blocksInPlay.remove(i);
-                } else {
-                    if (block.velocity.x != 0) {
-                        block.position.x += block.velocity.x * deltaTime;
+                // Move the block
+                if (block.velocity.x != 0) {
+                    block.position.x += block.velocity.x * deltaTime;
+                }
+
+                // If the block is on the field, check its row and land it if appropriate
+                if (block.position.x >= BlockField.FIELD_START_X - Block.SIZE) {
+                    if (blockField.isRowFull(block.rowIndex)) {
+                        // TODO(brian): animate bounce off of field
+                        blocksInPlay.remove(i);
+                    }
+                    else if (blockField.checkForLanding(block)) {
+                        // TODO(brian): animate landing
+                        blocksInPlay.remove(i);
                     }
                 }
             }
@@ -168,30 +174,21 @@ public class Model implements Disposable {
     private void flingBlock(float worldTouchX, float worldTouchY) {
         touch.set(worldTouchX, worldTouchY);
 
-        Block fling = null;
+        Block flung = null;
         for (Block block : blocksInPlay) {
             if (Block.State.DROPPING.equals(block.state)) {
                 bounds.setPosition(block.position);
                 if (bounds.contains(touch)) {
-                    fling = block;
+                    flung = block;
                     break;
                 }
             }
         }
 
-        if (fling != null) {
-            fling.state = Block.State.FLINGING;
-            fling.velocity.x = FLING_SPEED;
-
-            // Clamp to closest field row y pos
-            // TODO(brian): there should be a more elegant way to accomplish this
-            final float FIELD_END_Y = BlockField.FIELD_START_Y + BlockField.FIELD_HEIGHT * Block.SIZE;
-            for (float y = BlockField.FIELD_START_Y; y < FIELD_END_Y; y += Block.SIZE) {
-                if (touch.y >= y && touch.y <= y + Block.SIZE) {
-                    fling.position.y = y;
-                    break;
-                }
-            }
+        if (flung != null) {
+            flung.state = Block.State.FLINGING;
+            flung.velocity.x = FLING_SPEED;
+            blockField.clampToRow(flung, touch);
         }
     }
 

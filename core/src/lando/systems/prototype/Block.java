@@ -14,6 +14,7 @@ public class Block {
     public  State     state;
     public  Vector2   position;
     public  Vector2   velocity;
+    public  int       rowIndex;
 
     public enum State {
         QUEUED,
@@ -36,6 +37,7 @@ public class Block {
         this.state    = state;
         this.position = position;
         this.velocity = new Vector2();
+        this.rowIndex = -1;
     }
 
     public final BlockType getType() {

@@ -32,12 +32,53 @@ public class BlockField {
     // Public interface
     // -------------------------------------------------------------------------
 
+    public void clampToRow(Block flung, Vector2 touch) {
+        Block block;
+        for (int i = 0; i < blocks.length; ++i) {
+            block = blocks[i][0];
+            if (touch.y >= block.position.y
+             && touch.y <= block.position.y + Block.SIZE) {
+                flung.position.y = block.position.y;
+                flung.rowIndex = i;
+                break;
+            }
+        }
+    }
 
+    public boolean isRowFull(int row) {
+        return (getLastEmptyBlockInRow(row) == null);
+    }
+
+    public boolean checkForLanding(Block block) {
+        if (block.rowIndex < 0 || block.rowIndex >= blocks.length) {
+            return false;
+        }
+
+        final Block lastEmptyBlock = getLastEmptyBlockInRow(block.rowIndex);
+        if (lastEmptyBlock == null) {
+            return false;
+        }
+
+        if (block.position.x >= lastEmptyBlock.position.x) {
+            lastEmptyBlock.setType(block.getType());
+            lastEmptyBlock.state = Block.State.LANDED;
+            return true;
+        }
+        return false;
+    }
 
     // -------------------------------------------------------------------------
     // Private implementation
     // -------------------------------------------------------------------------
 
-
+    private Block getLastEmptyBlockInRow(int row) {
+        Block lastEmptyBlock = null;
+        for (Block block : blocks[row]) {
+            if (BlockType.EMPTY.equals(block.getType())) {
+                lastEmptyBlock = block;
+            }
+        }
+        return lastEmptyBlock;
+    }
 
 }
