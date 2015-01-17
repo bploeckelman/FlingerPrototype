@@ -84,8 +84,8 @@ public class View implements Disposable {
         batch.setColor(Color.WHITE);
     }
 
-    private void drawBlockField(Block[][] blockField) {
-        for (Block[] blockRow : blockField) {
+    private void drawBlockField(BlockField blockField) {
+        for (Block[] blockRow : blockField.getBlocks()) {
             for (Block block : blockRow) {
                 drawBlock(batch, block);
             }

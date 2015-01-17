@@ -18,8 +18,6 @@ import java.util.LinkedList;
 public class Model implements Disposable {
 
     private static final int   QUEUE_SIZE      = 6;
-    private static final int   FIELD_WIDTH     = 6;
-    private static final int   FIELD_HEIGHT    = 12;
     private static final float DROP_GRAVITY    = 64;
     private static final float DROP_DELAY      = 1.25f;
     private static final float FLING_SPEED     = 512;
@@ -27,14 +25,11 @@ public class Model implements Disposable {
     private static final float SWING_AMPLITUDE = View.DROP_REGION_WIDTH / 2 -
                                                  Block.SIZE * 2;
     private static final float SWING_CENTER_X  = View.BLOCK_QUEUE_POSITION_X;
-    private static final float FIELD_START_X   = View.VIEW_WIDTH -
-                                                 FIELD_WIDTH * Block.SIZE;
-    private static final float FIELD_START_Y   = View.BLOCK_QUEUE_MARGIN_TOP;
 
     TweenManager      tweens;
     LinkedList<Block> blockQueue;
     LinkedList<Block> blocksInPlay;
-    Block[][]         blockField;
+    BlockField        blockField;
 
     float dropAccum;
     float swingAccum;
@@ -56,15 +51,7 @@ public class Model implements Disposable {
         }
 
         blocksInPlay = new LinkedList<Block>();
-
-        blockField = new Block[FIELD_HEIGHT][FIELD_WIDTH];
-        for (int y = 0; y < blockField.length; ++y) {
-            for (int x = 0; x < blockField[0].length; ++x) {
-                position.set(FIELD_START_X + x * Block.SIZE,
-                             FIELD_START_Y + y * Block.SIZE);
-                blockField[y][x] = new Block(BlockType.EMPTY, position.cpy());
-            }
-        }
+        blockField   = new BlockField();
 
         dropAccum  = DROP_DELAY;
         swingAccum = 0;
@@ -82,7 +69,7 @@ public class Model implements Disposable {
         return blocksInPlay;
     }
 
-    public final Block[][] getBlockField() {
+    public final BlockField getBlockField() {
         return blockField;
     }
 
@@ -198,8 +185,8 @@ public class Model implements Disposable {
 
             // Clamp to closest field row y pos
             // TODO(brian): there should be a more elegant way to accomplish this
-            final float FIELD_END_Y = FIELD_START_Y + FIELD_HEIGHT * Block.SIZE;
-            for (float y = FIELD_START_Y; y < FIELD_END_Y; y += Block.SIZE) {
+            final float FIELD_END_Y = BlockField.FIELD_START_Y + BlockField.FIELD_HEIGHT * Block.SIZE;
+            for (float y = BlockField.FIELD_START_Y; y < FIELD_END_Y; y += Block.SIZE) {
                 if (touch.y >= y && touch.y <= y + Block.SIZE) {
                     fling.position.y = y;
                     break;
