@@ -74,9 +74,11 @@ public class BlockField {
 
     private Block getLastEmptyBlockInRow(int row) {
         Block lastEmptyBlock = null;
-        for (Block block : blocks[row]) {
-            if (BlockType.EMPTY.equals(block.getType())) {
-                lastEmptyBlock = block;
+        if (row >= 0 && row < blocks.length) {
+            for (Block block : blocks[row]) {
+                if (BlockType.EMPTY.equals(block.type)) {
+                    lastEmptyBlock = block;
+                }
             }
         }
         return lastEmptyBlock;
