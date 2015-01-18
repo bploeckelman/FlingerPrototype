@@ -171,14 +171,14 @@ public class Model implements Disposable {
     }
 
     private Vector2   touch  = new Vector2();
-    private Rectangle bounds = new Rectangle(0, 0, Block.SIZE, Block.SIZE);
+    private Rectangle bounds = new Rectangle(0, 0, View.DROP_REGION_WIDTH, Block.SIZE);
     private void flingBlock(float worldTouchX, float worldTouchY) {
         touch.set(worldTouchX, worldTouchY);
 
         Block flung = null;
         for (Block block : blocksInPlay) {
             if (State.DROPPING.equals(block.state)) {
-                bounds.setPosition(block.position);
+                bounds.setY(block.position.y);
                 if (bounds.contains(touch)) {
                     flung = block;
                     break;
