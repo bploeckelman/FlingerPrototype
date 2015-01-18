@@ -9,11 +9,15 @@ public class Block {
 
     public static final int SIZE = 32;
 
+    // TODO(brian): add isEmpty() convenience method that checks BlockType.EMPTY.equals(type)
+
     public BlockType type;
     public State     state;
     public Vector2   position;
     public Vector2   velocity;
     public int       rowIndex;
+    public int       colIndex;
+    public boolean   matched;
 
     public enum State {
         QUEUED,
@@ -37,6 +41,8 @@ public class Block {
         this.position = position;
         this.velocity = new Vector2();
         this.rowIndex = -1;
+        this.colIndex = -1;
+        this.matched  = false;
     }
 
     // -------------------------------------------------------------------------
