@@ -18,6 +18,7 @@ public class Block {
     public int       rowIndex;
     public int       colIndex;
     public boolean   matched;
+    public float     swingAccum;
 
     public enum State {
         QUEUED,
@@ -43,6 +44,7 @@ public class Block {
         this.rowIndex = -1;
         this.colIndex = -1;
         this.matched  = false;
+        this.swingAccum = 0;
     }
 
     // -------------------------------------------------------------------------

@@ -33,7 +33,6 @@ public class Model implements Disposable {
     BlockField        blockField;
 
     float dropAccum;
-    float swingAccum;
 
     public Model() {
         tweens = new TweenManager();
@@ -55,7 +54,6 @@ public class Model implements Disposable {
         blockField   = new BlockField();
 
         dropAccum  = DROP_DELAY;
-        swingAccum = 0;
     }
 
     public final TweenManager tween() {
@@ -102,12 +100,6 @@ public class Model implements Disposable {
             dropBlock();
         }
 
-        // TODO(brian): each block should handle its own swing
-        swingAccum += SWING_FREQUENCY * deltaTime;
-        if (swingAccum >= MathUtils.PI2) {
-            swingAccum = 0;
-        }
-
         // TODO(brian): change blocksInPlay to ArrayList since I'm accessing by index here?
         Block block;
         for (int i = blocksInPlay.size() - 1; i >= 0; --i) {
@@ -121,8 +113,12 @@ public class Model implements Disposable {
                     block.velocity.set(0, 0);
                     blocksInPlay.remove(i);
                 } else {
+                    block.swingAccum += SWING_FREQUENCY * deltaTime;
+                    if (block.swingAccum >= MathUtils.PI2) {
+                        block.swingAccum = 0;
+                    }
                     block.position.x = SWING_AMPLITUDE *
-                                       MathUtils.sin(swingAccum) +
+                                       MathUtils.sin(block.swingAccum) +
                                        SWING_CENTER_X;
                     block.position.y -= DROP_GRAVITY * deltaTime;
                 }
